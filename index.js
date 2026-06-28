@@ -52,7 +52,7 @@ const CLASS_DEF = {
     oildiffuser: OilDiffuserAccessory
 };
 
-let Characteristic, PlatformAccessory, Service, Categories, AdaptiveLightingController, UUID;
+let Characteristic, PlatformAccessory, Service, Categories, Perms, AdaptiveLightingController, UUID;
 
 module.exports = function(homebridge) {
     ({
@@ -65,6 +65,12 @@ module.exports = function(homebridge) {
     // plugin doesn't crash with "Cannot read properties of undefined (reading
     // 'AIR_CONDITIONER')" on Homebridge 2.0+.
     Categories = homebridge.hap.Categories || (homebridge.hap.Accessory && homebridge.hap.Accessory.Categories);
+
+    // HAP 2.x removed the Characteristic.Perms static; Perms is exposed at
+    // hap.Perms. Resolve it with fallbacks (and finally the raw permission
+    // codes) so the cached-accessory handling below can't crash with
+    // "Cannot read properties of undefined (reading 'WRITE')".
+    Perms = homebridge.hap.Perms || (Characteristic && Characteristic.Perms) || {};
 
     homebridge.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, TuyaLan, true);
 };
@@ -228,21 +234,31 @@ class TuyaLan {
         // also checks null objects or empty config - this._expectedUUIDs
         if (accessory instanceof PlatformAccessory && this._expectedUUIDs && this._expectedUUIDs.includes(accessory.UUID)) {
             this.cachedAccessories.set(accessory.UUID, accessory);
-            accessory.services.forEach(service => {
-                if (service.UUID === Service.AccessoryInformation.UUID) return;
-                service.characteristics.some(characteristic => {
-                    if (!characteristic.props ||
-                        !Array.isArray(characteristic.props.perms) ||
-                        characteristic.props.perms.length !== 3 ||
-                        !(characteristic.props.perms.includes(Characteristic.Perms.WRITE) && characteristic.props.perms.includes(Characteristic.Perms.NOTIFY))
-                    ) return;
 
-                    this.log.info('Marked %s unreachable by faulting Service.%s.%s', accessory.displayName, service.displayName, characteristic.displayName);
+            // Permission codes are stable across HAP versions ('pw' = write,
+            // 'ev' = notify) even though the enum member names/location changed.
+            const permWrite = Perms.PAIRED_WRITE || Perms.WRITE || 'pw';
+            const permNotify = Perms.NOTIFY || Perms.EVENTS || 'ev';
 
-                    characteristic.updateValue(new Error('Unreachable'));
-                    return true;
+            try {
+                accessory.services.forEach(service => {
+                    if (service.UUID === Service.AccessoryInformation.UUID) return;
+                    service.characteristics.some(characteristic => {
+                        if (!characteristic.props ||
+                            !Array.isArray(characteristic.props.perms) ||
+                            characteristic.props.perms.length !== 3 ||
+                            !(characteristic.props.perms.includes(permWrite) && characteristic.props.perms.includes(permNotify))
+                        ) return;
+
+                        this.log.info('Marked %s unreachable by faulting Service.%s.%s', accessory.displayName, service.displayName, characteristic.displayName);
+
+                        characteristic.updateValue(new Error('Unreachable'));
+                        return true;
+                    });
                 });
-            });
+            } catch (err) {
+                this.log.error('Failed to fault cached accessory %s as unreachable: %s', accessory.displayName, err && err.stack || err);
+            }
         } else {
             /*
              * Irrespective of this unregistering, Homebridge continues
