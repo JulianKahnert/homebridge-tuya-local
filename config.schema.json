@@ -161,6 +161,22 @@
                   "functionBody": "return model.devices && model.devices[arrayIndices].type !== 'null';"
                 }
               },
+              "version": {
+                "title": "Protocol Version",
+                "type": "string",
+                "default": "3.3",
+                "required": false,
+                "oneOf": [
+                  { "title": "3.1", "enum": ["3.1"] },
+                  { "title": "3.3", "enum": ["3.3"] },
+                  { "title": "3.4", "enum": ["3.4"] },
+                  { "title": "3.5", "enum": ["3.5"] }
+                ],
+                "description": "Tuya local protocol version. Newer devices use 3.4 or 3.5; if left unset the plugin defaults to 3.1. Must match the device (e.g. discovered via tinytuya).",
+                "condition": {
+                  "functionBody": "return model.devices && model.devices[arrayIndices].type !== 'null';"
+                }
+              },
               "manufacturer": {
                 "type": "string",
                 "description": "Anything you'd like to use to help identify this device.",
