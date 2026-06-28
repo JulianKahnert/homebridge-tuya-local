@@ -177,6 +177,15 @@
                   "functionBody": "return model.devices && model.devices[arrayIndices].type !== 'null';"
                 }
               },
+              "fanSpeedReverse": {
+                "title": "Reverse Fan Speed Order",
+                "type": "boolean",
+                "required": false,
+                "description": "Enable if the device numbers its fan speeds in reverse (e.g. '1' = high, '3' = low) so HomeKit's slider direction matches the real speed.",
+                "condition": {
+                  "functionBody": "return model.devices && model.devices[arrayIndices].type === 'AirConditioner';"
+                }
+              },
               "manufacturer": {
                 "type": "string",
                 "description": "Anything you'd like to use to help identify this device.",
