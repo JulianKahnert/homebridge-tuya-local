@@ -57,8 +57,14 @@ let Characteristic, PlatformAccessory, Service, Categories, AdaptiveLightingCont
 module.exports = function(homebridge) {
     ({
         platformAccessory: PlatformAccessory,
-        hap: {Characteristic, Service, AdaptiveLightingController, Accessory: {Categories}, uuid: UUID}
+        hap: {Characteristic, Service, AdaptiveLightingController, uuid: UUID}
     } = homebridge);
+
+    // Homebridge 2.x / HAP 2.x exposes Categories at hap.Categories; older
+    // versions nested it under hap.Accessory.Categories. Support both so the
+    // plugin doesn't crash with "Cannot read properties of undefined (reading
+    // 'AIR_CONDITIONER')" on Homebridge 2.0+.
+    Categories = homebridge.hap.Categories || (homebridge.hap.Accessory && homebridge.hap.Accessory.Categories);
 
     homebridge.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, TuyaLan, true);
 };
