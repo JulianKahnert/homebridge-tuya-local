@@ -167,11 +167,36 @@ class TuyaLan {
             }));
         });
 
+        // Devices with a statically configured IP are connected right away instead of
+        // waiting up to 60s for a UDP discovery broadcast. Discovery keeps running in
+        // parallel (it still updates IPs via 'ipChanged'/'update'); the connectedDevices
+        // guard prevents a later discovery from instantiating the same device twice.
+        deviceIds.forEach(deviceId => {
+            if (connectedDevices.includes(deviceId)) return;
+
+            const ip = devices[deviceId].ip;
+            if (!ip) return; // No IP yet: wait for discovery (handled by the fallback below).
+
+            connectedDevices.push(deviceId);
+
+            this.log.info('Device %s (%s) has a static IP %s — connecting directly without waiting for discovery.', devices[deviceId].name, deviceId, ip);
+
+            const device = new TuyaAccessory({
+                ...devices[deviceId],
+                log: this.log,
+                UUID: UUID.generate(PLUGIN_NAME + ':' + deviceId),
+                connect: false
+            });
+            this.addAccessory(device);
+        });
+
         setTimeout(() => {
             deviceIds.forEach(deviceId => {
                 if (connectedDevices.includes(deviceId)) return;
 
                 if (devices[deviceId].ip) {
+
+                    connectedDevices.push(deviceId);
 
                     this.log.info('Failed to discover %s (%s) in time but will connect via %s.', devices[deviceId].name, deviceId, devices[deviceId].ip);
 
